@@ -2,6 +2,7 @@ const fs = require('fs');
 const readline = require('readline');
 const { ethers } = require("ethers");
 import { exportArrayToCSV, exportToJson } from "./utils";
+import { IRebalanceConfig } from "./rewards-dist.service";
 
 import { loadData as loadRewards } from "../loaders/export_rewards";
 import { loadData as loadPositions } from "../loaders/export_positions";
@@ -122,12 +123,14 @@ const getFile = (filePath: string) => {
     });
 }
 
-export const calculateStats = async () => {
+export const calculateStats = async (cachedPositionIds: number[], vfatPositions: IRebalanceConfig[]) => {
     const rewards: any = await getFile(rewards_filePath);
-    const positions: any = await getFile(positions_filePath);
+    let positions: any = await getFile(positions_filePath);
     const positionsBurns: any = await getFile(positions_burns_filePath);
     const poolHoursData: any = await getFile(pool_hours_data_filePath);
     const swaps: any = await getFile(swaps_data_filePath);
+
+    console.log('vfatPositions: ', vfatPositions.length);
 
     // const poolSymbolBase = 'USDC.e/scUSD'// 'USDC.e/USDT'
 
@@ -137,10 +140,24 @@ export const calculateStats = async () => {
     // const poolHoursData = await loadPoolHoursData(poolSymbolBase);
     // const swaps = await loadSwaps(poolSymbolBase);
 
-    console.log(rewards.length);
-    console.log(positions.length);
-    console.log(positionsBurns.length);
-    console.log(poolHoursData.length);
+    console.log('pool: ', 'USDC.e/USDT');
+
+    console.log('rewards: ', rewards.length);
+    console.log('positions: ', positions.length);
+    console.log('positions in vfat: ', positions.filter((p: any) => cachedPositionIds.includes(p.id)).length);
+    console.log('positionsBurns: ', positionsBurns.length);
+    console.log('poolHoursData: ', poolHoursData.length);
+
+    positions = positions.filter((p: any) => cachedPositionIds.includes(p.id));
+
+    positions = positions.map((p: any) => {
+        const vfatPosition = vfatPositions.find((vp: IRebalanceConfig) => vp.positionId === p.id);
+
+        return {
+            ...p,
+            ...vfatPosition
+        }
+    })
 
     positionsBurns.sort((a: any, b: any) => {
         return Number(a.timestamp) - Number(b.timestamp) > 0 ? -1 : 1;
@@ -167,7 +184,7 @@ export const calculateStats = async () => {
         return acc;
     }, {});
 
-    console.log('rewardsByPosition: ', Object.keys(rewardsByPosition).length)
+    console.log('rewards by position: ', Object.keys(rewardsByPosition).length)
 
     const positionsWithRewards = positions.map((pos: any) => {
         return {
@@ -360,36 +377,44 @@ export const calculateStats = async () => {
 
     // console.log(positionsFinal.filter(p => p.id == '295623'))
     // 295623.0	-3.0	2.0	5.0	8760.9	4999.4	0.0	0.0	13760.3	-13760.3	-1216.67	0.9997	1.0002	0.00049995	1.0
-    // const swapsCsv = positionsFinal.map((pos: any) => {
-    //   return {
-    //     id: pos.id,
-    //     tick_lower: pos.tickLower.tickIdx,
-    //     tick_upper: pos.tickUpper.tickIdx,
-    //     ticks: pos.ticks,
-    //     deposited_token0: pos.depositedToken0,
-    //     deposited_token1: pos.depositedToken1,
-    //     collected_token0: pos.collectedToken0,
-    //     collected_token1: pos.collectedToken1,
-    //     total_deposited_usd: Number(pos.depositedToken0) + Number(pos.depositedToken1),
-    //     total_profit_usd: pos.totalUSD,
-    //     apr_30d: pos.apr_30d,
-    //     apr: pos.apr,
-    //     in_range: pos.in_range,
-    //     in_range_swaps: pos.in_range_swaps,
-    //     //swaps_in_interval: pos.swapsInInterval,
-    //     //swaps_in_range: pos.swapsInRange,
-    //     //hours_in_range: pos.hours_in_range,
-    //     //hours: pos.hours,
-    //     //duration: pos.duration,
-    //     //open_date: pos.open_date,
-    //     //close_date: pos.close_date,
-    //     price_lower: Number(pos.tickLower.price0).toFixed(4),
-    //     price_upper: Number(pos.tickUpper.price0).toFixed(4),
-    //     price_range: (Number(pos.tickUpper.price0) - Number(pos.tickLower.price0)).toFixed(4),
-    //     price_mid: Number(pos.price_mid).toFixed(4),
-    //     wallet: pos.wallet,
-    //   }
-    // })
+    const swapsCsv = positionsFinal.map((pos: any) => {
+      return {
+        id: pos.id,
+        tick_lower: pos.tickLower.tickIdx,
+        tick_upper: pos.tickUpper.tickIdx,
+        ticks: pos.ticks,
+        deposited_token0: pos.depositedToken0,
+        deposited_token1: pos.depositedToken1,
+        collected_token0: pos.collectedToken0,
+        collected_token1: pos.collectedToken1,
+        total_deposited_usd: Number(pos.depositedToken0) + Number(pos.depositedToken1),
+        total_profit_usd: pos.totalUSD,
+        apr_30d: pos.apr_30d,
+        apr: pos.apr,
+        in_range: pos.in_range,
+        in_range_swaps: pos.in_range_swaps,
+        //swaps_in_interval: pos.swapsInInterval,
+        //swaps_in_range: pos.swapsInRange,
+        //hours_in_range: pos.hours_in_range,
+        //hours: pos.hours,
+        //duration: pos.duration,
+        //open_date: pos.open_date,
+        //close_date: pos.close_date,
+        price_lower: Number(pos.tickLower.price0).toFixed(4),
+        price_upper: Number(pos.tickUpper.price0).toFixed(4),
+        price_range: (Number(pos.tickUpper.price0) - Number(pos.tickLower.price0)).toFixed(4),
+        price_mid: Number(pos.price_mid).toFixed(4),
+        wallet: pos.wallet,
+        auto_rebalance: pos.autoRebalance,
+        cutoff_tick_low: pos.cutoffTickLow,
+        cutoff_tick_high: pos.cutoffTickHigh,
+        buffer_ticks_below: pos.bufferTicksBelow,
+        buffer_ticks_above: pos.bufferTicksAbove,
+        tick_spaces_below: pos.tickSpacesBelow,
+        tick_spaces_above: pos.tickSpacesAbove,
+        dust_bp: pos.dustBP
+      }
+    })
     const poolSymbol = 'USDC.e/USDT'
 
     // return;
@@ -397,8 +422,8 @@ export const calculateStats = async () => {
     const exportFileName = `export/positions_stats_${poolSymbol.replace('/', '_')
         }_
         }`
-    // console.log(`Total swaps: ${swapsCsv.length}. Exporting to ${exportFileName}...`)
-    // exportArrayToCSV(`${exportFileName}.csv`, swapsCsv)
+    console.log(`Total swaps: ${swapsCsv.length}. Exporting to ${exportFileName}...`)
+    exportArrayToCSV(`${exportFileName}.csv`, swapsCsv)
     await exportToJson(`${exportFileName}.jsonl`, swaps)
     console.log('Export complete! check' + exportFileName)
 

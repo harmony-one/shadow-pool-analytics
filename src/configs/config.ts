@@ -6,6 +6,10 @@ export default () => ({
     name: 'hmy',
     url: process.env.HMY_NODE_URL,
   },
+  sonic: {
+    name: 'sonic',
+    url: process.env.SONIC_NODE_URL,
+  },
   contracts: {
     stakingVault: contracts.StakingVault,
     rewardDistributor: contracts.RewardDistributor,

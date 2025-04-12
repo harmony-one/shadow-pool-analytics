@@ -15,7 +15,8 @@ import { RewardsDistModule } from './rewards-dist/rewards-dist.module';
     }),
     Web3Module.forRootAsync({
       useFactory: (configService: ConfigService) => [
-        configService.get('hmy'),
+        // configService.get('hmy'),
+        configService.get('sonic'),
       ],
       inject: [ConfigService],
     }),

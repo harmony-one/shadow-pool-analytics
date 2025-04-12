@@ -8,6 +8,7 @@ import {
 
 import EventEmitter = require('events');
 import { Injectable, Logger } from '@nestjs/common';
+// const { ethers } = require("ethers");
 
 export interface IEvent {
   address: string;
@@ -50,7 +51,7 @@ export class EventTrackerService {
   lastSuccessfulRead = 0;
   contractAddress = '';
 
-  blocksInterval = 1024;
+  blocksInterval = 1024000;
   waitInterval = 500;
   cacheLimit = 10000;
 
@@ -81,10 +82,10 @@ export class EventTrackerService {
     try {
       // this.lastBlock = await getContractDeploymentBlock(this.contractAddress);
       // this.startBlock = this.lastBlock;
-      
+
       this.lastNodeBlock = await this.web3.eth.getBlockNumber();
 
-      if(!startBlock) {
+      if (!startBlock) {
         this.lastBlock = this.lastNodeBlock - 30000;
         this.startBlock = this.lastBlock;
       } else {
@@ -166,6 +167,7 @@ export class EventTrackerService {
           const item = result[i];
 
           const topics = this.chain === 'hmy' ? item.topics : item.raw.topics;
+          const data = this.chain === 'hmy' ? item.data : item.raw.data;
 
           const topic = topics[0].toLowerCase();
           const abiItem = this.abiEvents[topic];
@@ -173,7 +175,7 @@ export class EventTrackerService {
           if (abiItem) {
             const returnValues = this.web3.eth.abi.decodeLog(
               abiItem.inputs,
-              item.data,
+              data,
               topics.slice(1)
             );
 
@@ -182,7 +184,102 @@ export class EventTrackerService {
               name: abiItem.name,
               returnValues,
               blockNumber: Number(item.blockNumber),
+              topics
             });
+
+            /*
+            try {
+              const abi = [
+                {
+                  "anonymous": false,
+                  "inputs": [
+                    {
+                      "indexed": false,
+                      "internalType": "struct NftKey",
+                      "name": "key",
+                      "type": "tuple",
+                      "components": [
+                        { "name": "sickle", "type": "address" },
+                        { "name": "nftManager", "type": "address" },
+                        { "name": "tokenId", "type": "uint256" }
+                      ]
+                    },
+                    {
+                      "indexed": false,
+                      "internalType": "struct NftSettings",
+                      "name": "settings",
+                      "type": "tuple",
+                      "components": [
+                        { "name": "pool", "type": "address" },
+                        { "name": "autoRebalance", "type": "bool" },
+                        {
+                          "name": "rebalanceConfig",
+                          "type": "tuple",
+                          "components": [
+                            { "name": "tickSpacesBelow", "type": "uint24" },
+                            { "name": "tickSpacesAbove", "type": "uint24" },
+                            { "name": "bufferTicksBelow", "type": "int24" },
+                            { "name": "bufferTicksAbove", "type": "int24" },
+                            { "name": "dustBP", "type": "uint256" },
+                            { "name": "priceImpactBP", "type": "uint256" },
+                            { "name": "slippageBP", "type": "uint256" },
+                            { "name": "cutoffTickLow", "type": "int24" },
+                            { "name": "cutoffTickHigh", "type": "int24" },
+                            { "name": "delayMin", "type": "uint8" },
+                            {
+                              "name": "rewardConfig",
+                              "type": "tuple",
+                              "components": [
+                                { "name": "rewardBehavior", "type": "uint8" },
+                                { "name": "harvestTokenOut", "type": "address" }
+                              ]
+                            }
+                          ]
+                        },
+                        { "name": "automateRewards", "type": "bool" },
+                        {
+                          "name": "rewardConfig",
+                          "type": "tuple",
+                          "components": [
+                            { "name": "rewardBehavior", "type": "uint8" },
+                            { "name": "harvestTokenOut", "type": "address" }
+                          ]
+                        },
+                        { "name": "autoExit", "type": "bool" },
+                        {
+                          "name": "exitConfig",
+                          "type": "tuple",
+                          "components": [
+                            { "name": "triggerTickLow", "type": "int24" },
+                            { "name": "triggerTickHigh", "type": "int24" },
+                            { "name": "exitTokenOutLow", "type": "address" },
+                            { "name": "exitTokenOutHigh", "type": "address" },
+                            { "name": "priceImpactBP", "type": "uint256" },
+                            { "name": "slippageBP", "type": "uint256" }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "NftSettingsSet",
+                  "type": "event"
+                }
+              ];
+
+              const iface = new ethers.Interface(abi);
+
+              const decoded = iface.decodeEventLog("NftSettingsSet", item.raw.data);
+
+              events.push({
+                ...item,
+                name: abiItem.name,
+                returnValues: decoded,
+                blockNumber: Number(item.blockNumber),
+                topics,
+              });
+            } catch (e) {
+            }
+            */
           }
         }
 
@@ -206,7 +303,7 @@ export class EventTrackerService {
         await sleep(20);
       }
     } catch (e) {
-      this.logger.error('Error getEvents', { error: e });
+      this.logger.error('Error getEvents', { error: e, message: e.message });
     }
 
     setTimeout(this.readEvents, this.waitInterval);
